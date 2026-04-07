@@ -7,7 +7,8 @@ Training a MuJoCo Ant to walk, dodge obstacles, and chase moving waypoints — t
 **Final Stage 9 policy — open arena, 15 random obstacles, cycling waypoint:**
 
 <!-- VIDEO 9: Final stage 9 result. Paste the github user-attachments URL on the line below. -->
-<!-- PASTE_URL_VIDEO_9_FINAL_STAGE9 -->
+
+https://github.com/user-attachments/assets/740865b0-adc8-451e-bae6-a176a1af99d6
 
 ---
 
@@ -43,12 +44,14 @@ https://github.com/user-attachments/assets/084666d6-bdde-4a0a-b396-0bcbb6e5f061
 The first time I added an obstacle, the ant walked straight into it. Of course it did — it had spent 2000 iterations learning that +x velocity is the only thing that matters. The obstacle scan and proximity penalties were live, but the policy needed time to incorporate them into the value function. After a few hundred iterations of head-on collisions, it started learning to steer around.
 
 <!-- VIDEO 3: Stage 2 — ant hits the wall the first time, then passes the barrier. -->
-<!-- PASTE_URL_VIDEO_3_STAGE2_HITS_THEN_PASSES -->
+
+https://github.com/user-attachments/assets/2328562a-436e-468c-9e77-746e2fe3fd0d
 
 By the time Stage 4 was running, it had paired the avoidance with waypoint following on the single-barrier scene:
 
 <!-- VIDEO 4: Stage 4 — ant navigating to a waypoint past one barrier. -->
-<!-- PASTE_URL_VIDEO_4_STAGE4_WAYPOINT_ONE_BARRIER -->
+
+https://github.com/user-attachments/assets/c1d5d18a-8b58-436a-a11c-623b1769863a
 
 ### Stages 3, 4 and 5: where fixed waypoints broke down
 
@@ -57,12 +60,14 @@ Stages 3 through 5 added the second chicane, the fixed waypoint sequence, and th
 The first was the zigzag through the two-chicane corridor:
 
 <!-- VIDEO 5a: Stage 3/4 zigzag — ant memorizing the chicane sequence. -->
-<!-- PASTE_URL_VIDEO_5A_ZIGZAG -->
+
+https://github.com/user-attachments/assets/75cd7e1f-3129-4401-99ed-967864f5b6e8
 
 The second was the 90-degree turn at the end of the L-maze:
 
 <!-- VIDEO 5b: Stage 5 turn — ant struggling with the fixed waypoint at the corner. -->
-<!-- PASTE_URL_VIDEO_5B_TURN -->
+
+https://github.com/user-attachments/assets/acd5444b-0502-4a71-949d-c9b3189f40dc
 
 In both cases the ant wasn't *navigating*. It was memorizing. The waypoints were fixed, the obstacles were fixed, and the policy was overfitting to the specific geometry. The moment I imagined moving any of it, I knew the ant would fail — and worse, I'd be debugging an overfit policy without knowing whether the navigation logic was correct in the first place. This is what pushed me to Stage 4.5.
 
@@ -71,7 +76,8 @@ In both cases the ant wasn't *navigating*. It was memorizing. The waypoints were
 I replaced the entire fixed-waypoint system with a single cycling random target. The waypoint respawns 2–8 m away in a random direction the moment the ant reaches it (`reach_radius=0.8 m`). One waypoint, infinite variety. From this point on, every stage uses the same random-target system, and the ant has to actually learn to navigate rather than to memorize.
 
 <!-- VIDEO 6: Stage 4.5 — ant chasing cycling random targets in clean space. -->
-<!-- PASTE_URL_VIDEO_6_STAGE4_5_RANDOM_TARGETS -->
+
+https://github.com/user-attachments/assets/dcfc3350-b2df-4593-8009-ecb846d6ba4e
 
 This was the moment the project clicked. The ant immediately got harder to train (no more memorization shortcut) but the resulting policy was something I trusted.
 
@@ -80,12 +86,14 @@ This was the moment the project clicked. The ant immediately got harder to train
 I did keep going with the maze geometry for a while after introducing random targets. The ant could still handle the L-turn:
 
 <!-- VIDEO 7: Stage 5/6 with random targets — ant navigating the L-turn. -->
-<!-- PASTE_URL_VIDEO_7_L_TURN_RANDOM -->
+
+https://github.com/user-attachments/assets/2af2a6cf-24a1-43db-ae1c-4ff42224228a
 
 And in parallel, all 4096 envs running the full L-maze look surprisingly orderly:
 
 <!-- VIDEO 8: Stage 6/7 — many ants navigating the full L-maze in parallel. -->
-<!-- PASTE_URL_VIDEO_8_L_MAZE_PARALLEL -->
+
+https://github.com/user-attachments/assets/451abcf5-151d-4829-95b9-9cb509651f4e
 
 But once the random-target system was working, the maze geometry was actively making things harder without teaching anything new. An open arena with random obstacles is both simpler to reason about and harder for the policy, which is what you want from a curriculum. I dropped the L-maze entirely and moved to an open flat arena for Stages 8 and 9.
 
