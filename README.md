@@ -4,7 +4,10 @@ Training a MuJoCo Ant to walk, dodge obstacles, and chase moving waypoints — t
 
 > **Status:** Phase A (static obstacles) complete at Stage 9. Phase B (moving obstacles) in progress.
 
-<!-- TODO: drop a hero gif of the Stage 9 ant navigating the obstacle field here -->
+**Final Stage 9 policy — open arena, 15 random obstacles, cycling waypoint:**
+
+<!-- VIDEO 9: Final stage 9 result. Paste the github user-attachments URL on the line below. -->
+<!-- PASTE_URL_VIDEO_9_FINAL_STAGE9 -->
 
 ---
 
@@ -20,19 +23,82 @@ I wanted a real, end-to-end project to learn how RL curricula are actually shape
 
 ## The plan vs. what actually happened
 
-I started with a fairly detailed 13-stage plan: an L-shaped maze with two chicanes and a 90-degree turn, fixed waypoints guiding the ant through it, and a clean progression from flat-plane locomotion to moving obstacles to multi-agent. About a third of it survived contact with reality.
+I started with a fairly detailed 13-stage plan: an L-shaped maze with two chicanes and a 90-degree turn, fixed waypoints guiding the ant through it, and a clean progression from flat-plane locomotion to moving obstacles to multi-agent. That plan is still in the repo as `PROJECT_PLAN.md`. About a third of it survived contact with reality.
 
-Three things forced me to pivot.
+### Stage 0: the three-legged tilted ant
 
-**The AABB cache went stale the moment anything moved.** My first obstacle-scan implementation built a one-time cache of axis-aligned bounding boxes for the kinematic walls in env 0 and reused it forever. That was fast and worked perfectly for static walls, but the moment I started thinking about Phase B (moving obstacles) I realized the whole approach was a dead end — the cache had no way to know an obstacle had moved. I rewrote the scan as `kinematic_object_scan`, which reads `root_pos_w` from each RigidObject every timestep. Slightly more expensive, but it works identically for static and moving obstacles, which means Phase B will need zero changes to the observation pipeline.
+The very first version of Stage 0 had a single reward: velocity in the +x direction. The ant figured out that the cheapest way to maximize +x velocity was to tilt sideways and shuffle on three legs, which is technically forward motion but is also extremely funny to watch and absolutely useless for everything that comes after.
 
-**Fixed waypoints didn't generalize.** The original plan had three hand-placed waypoints guiding the ant around the L-maze. The ant learned them — and only them. It memorized the exact path rather than learning to navigate. I replaced the fixed waypoint sequence with a single cycling random target that respawns 2–8 m away in a random direction the moment the ant reaches it (`reach_radius=0.8 m`). One waypoint, infinite variety. This became Stage 4.5 and changed everything downstream: from that point on, every stage uses the same random-target system, and the ant has to actually learn to navigate rather than to memorize.
+<!-- VIDEO 1: Stage 0 broken — three-legged tilted ant. -->
+<!-- PASTE_URL_VIDEO_1_STAGE0_BROKEN -->
 
-**The orbital behavior bug at Stage 9.** This one was the most instructive. After Stage 8 (6 obstacles) converged cleanly at ~8200 iterations, I scaled up to Stage 9 (15 obstacles) and trained until model_8500. The ant looked great in aggregate metrics — episode length pinned at the maximum, reward climbing — but when I actually watched the video it was *circling obstacles* instead of going to the waypoint. It would pick a nearby obstacle and orbit it like a satellite until the episode ended.
+The fix was a stack of conditional rewards and penalties: an upright-posture bonus, a feet-contact-count reward, an airborne penalty for lifting more than two feet at once, a roll penalty for tilting sideways, and a vertical-velocity penalty to kill jumping. Together they make four-legged grounded walking the only profitable strategy. The single most important rule from this stage, and one I keep coming back to: standing must never be more profitable than walking. The alive + upright + contact bonuses combined have to stay under 0.3, or the ant just stands there collecting income.
+
+<!-- VIDEO 2: Stage 0 working — clean four-legged forward walk. -->
+<!-- PASTE_URL_VIDEO_2_STAGE0_WORKING -->
+
+### Stages 2 and 3: hitting walls before learning to dodge
+
+The first time I added an obstacle, the ant walked straight into it. Of course it did — it had spent 2000 iterations learning that +x velocity is the only thing that matters. The obstacle scan and proximity penalties were live, but the policy needed time to incorporate them into the value function. After a few hundred iterations of head-on collisions, it started learning to steer around.
+
+<!-- VIDEO 3: Stage 2 — ant hits the wall the first time, then passes the barrier. -->
+<!-- PASTE_URL_VIDEO_3_STAGE2_HITS_THEN_PASSES -->
+
+By the time Stage 4 was running, it had paired the avoidance with waypoint following on the single-barrier scene:
+
+<!-- VIDEO 4: Stage 4 — ant navigating to a waypoint past one barrier. -->
+<!-- PASTE_URL_VIDEO_4_STAGE4_WAYPOINT_ONE_BARRIER -->
+
+### Stages 3, 4 and 5: where fixed waypoints broke down
+
+Stages 3 through 5 added the second chicane, the fixed waypoint sequence, and the L-turn from the original plan. They worked, in the narrow sense that the ant did the thing the rewards asked for. But two videos made it obvious the approach was a dead end.
+
+The first was the zigzag through the two-chicane corridor:
+
+<!-- VIDEO 5a: Stage 3/4 zigzag — ant memorizing the chicane sequence. -->
+<!-- PASTE_URL_VIDEO_5A_ZIGZAG -->
+
+The second was the 90-degree turn at the end of the L-maze:
+
+<!-- VIDEO 5b: Stage 5 turn — ant struggling with the fixed waypoint at the corner. -->
+<!-- PASTE_URL_VIDEO_5B_TURN -->
+
+In both cases the ant wasn't *navigating*. It was memorizing. The waypoints were fixed, the obstacles were fixed, and the policy was overfitting to the specific geometry. The moment I imagined moving any of it, I knew the ant would fail — and worse, I'd be debugging an overfit policy without knowing whether the navigation logic was correct in the first place. This is what pushed me to Stage 4.5.
+
+### Stage 4.5: the pivot to random targets
+
+I replaced the entire fixed-waypoint system with a single cycling random target. The waypoint respawns 2–8 m away in a random direction the moment the ant reaches it (`reach_radius=0.8 m`). One waypoint, infinite variety. From this point on, every stage uses the same random-target system, and the ant has to actually learn to navigate rather than to memorize.
+
+<!-- VIDEO 6: Stage 4.5 — ant chasing cycling random targets in clean space. -->
+<!-- PASTE_URL_VIDEO_6_STAGE4_5_RANDOM_TARGETS -->
+
+This was the moment the project clicked. The ant immediately got harder to train (no more memorization shortcut) but the resulting policy was something I trusted.
+
+### The L-maze stages, then dropping the L-maze
+
+I did keep going with the maze geometry for a while after introducing random targets. The ant could still handle the L-turn:
+
+<!-- VIDEO 7: Stage 5/6 with random targets — ant navigating the L-turn. -->
+<!-- PASTE_URL_VIDEO_7_L_TURN_RANDOM -->
+
+And in parallel, all 4096 envs running the full L-maze look surprisingly orderly:
+
+<!-- VIDEO 8: Stage 6/7 — many ants navigating the full L-maze in parallel. -->
+<!-- PASTE_URL_VIDEO_8_L_MAZE_PARALLEL -->
+
+But once the random-target system was working, the maze geometry was actively making things harder without teaching anything new. An open arena with random obstacles is both simpler to reason about and harder for the policy, which is what you want from a curriculum. I dropped the L-maze entirely and moved to an open flat arena for Stages 8 and 9.
+
+### The AABB cache went stale the moment anything moved
+
+Around the same time I was rewriting the obstacle scan. My first implementation built a one-time cache of axis-aligned bounding boxes for the kinematic walls in env 0 and reused it forever. Fast, worked perfectly for static walls. The moment I started thinking about Phase B (moving obstacles) I realized the whole approach was a dead end — the cache had no way to know an obstacle had moved. I rewrote the scan as `kinematic_object_scan`, which reads `root_pos_w` from each RigidObject every timestep. Slightly more expensive, but it works identically for static and moving obstacles, which means Phase B will need zero changes to the observation pipeline.
+
+### The orbital behavior bug at Stage 9
+
+After Stage 8 (6 obstacles) converged cleanly at ~8200 iterations, I scaled up to Stage 9 (15 obstacles) and trained until model_8500. The ant looked great in aggregate metrics — episode length pinned at the maximum, reward climbing — but when I actually watched the video it was *circling obstacles* instead of going to the waypoint. It would pick a nearby obstacle and orbit it like a satellite until the episode ended.
 
 The root cause took a while to find. Random targets were spawning uniformly across the arena, which meant they sometimes landed inside or just behind a tight obstacle cluster, often within 1.5 m of an obstacle's center. From the ant's perspective, the progress reward was pulling it toward the target while the proximity penalty was pushing it sideways from the obstacle right next to the target — and the equilibrium of those two forces is, geometrically, an orbit. The fix was two-part: enforce `min_target_obs_dist=2.5 m` so targets never spawn glued to an obstacle, and soften the proximity penalty (weight -5.0 → -2.5, threshold 0.7 → 0.4 m) so it reacts later and less violently. I also added an obstacle-biased target sampler that *prefers* spawning targets near obstacle clusters (but not inside them) — otherwise, since open space is larger than obstructed space, uniform sampling means the ant rarely practices threading through the dense zones.
 
-The other big departure from the plan: I dropped the L-maze entirely and moved to an open flat arena. Once the random-target system was working, the maze geometry was actively making things harder without teaching anything new. An open arena with random obstacles is both simpler to reason about and harder for the policy, which is what you want from a curriculum.
+The Stage 9 video at the top of this README is the post-fix policy.
 
 ## The curriculum
 
@@ -50,15 +116,13 @@ The other big departure from the plan: I dropped the L-maze entirely and moved t
 | 8 | Open arena, 6 random static obstacles | Cycling target, episode 96 s. Converged at ~8200 iterations. |
 | 9 | Open arena, 15 random static obstacles | Obstacle-biased target spawning. Best checkpoint: model_8500. |
 
-The transitions that mattered most were Stage 4 → 4.5 (fixed → random targets), Stage 7 → 8 (clean arena → random obstacles), and Stage 8 → 9 (where I had to debug the orbiting). Every other transition was mostly a config change with a checkpoint reload.
-
 ## Architecture decisions that mattered
 
 **The fixed 84-dimensional observation vector is the single most important decision in the whole project.** RSL-RL ties checkpoint compatibility to network input size, so the moment you change the observation dimension between stages, you can no longer warm-start from the previous stage's policy. I designed the full observation vector on day one — proprioception, waypoint channels, obstacle scan, scan history, agent scan — and made the early stages emit dummy values (zeros or ones) for the channels that weren't yet active. The result is that I can take the Stage 0 checkpoint and load it directly into Stage 9, or back-port a Stage 9 fix into Stage 4 without retraining from scratch. Every stage transition in this project was a `--load_checkpoint` away from instant warm-start, and that saved a huge amount of training time.
 
-**Kinematic scan instead of cached AABBs** — covered above in the "what actually happened" section. The lesson is the same one I keep relearning in robotics: caching is an optimization, and optimizations are commitments. The AABB cache was committing me to a static world.
+**Kinematic scan instead of cached AABBs** — covered above. The lesson is the same one I keep relearning in robotics: caching is an optimization, and optimizations are commitments. The AABB cache was committing me to a static world.
 
-**Obstacle-biased target spawning** is the kind of fix you only think of after watching your agent fail. Uniform random sampling sounds fair, but in an arena where 80% of the area is open and 20% is around obstacles, uniform sampling means 80% of the training signal comes from clear-zone navigation. I now sample 16 candidate targets per respawn, score each by how close it is to obstacle clusters (with a hard floor of 2.5 m to avoid the orbiting trap), and softmax-sample. Open-space targets still happen, but obstructed-zone targets happen often enough to force real avoidance learning.
+**Obstacle-biased target spawning** is the kind of fix you only think of after watching your agent fail. Uniform random sampling sounds fair, but in an arena where 80% of the area is open and 20% is around obstacles, uniform sampling means 80% of the training signal comes from clear-zone navigation. I now sample 16 candidate targets per respawn, score each by how close it is to obstacle clusters (with a hard floor of 2.5 m to avoid the orbiting trap), and softmax-sample.
 
 **Reward shaping lessons.** Three things from the first iteration that I am never going to relearn the hard way: standing must never be more profitable than walking (alive + upright + contact totals stay under 0.3), penalties like `lateral_motion` and `forward_heading` have to suspend themselves when there's an obstacle ahead (otherwise the ant gets penalized for the dodge it's supposed to do), and regularization terms (`action_l2`, energy, joint limits) all stay under -0.01. Heavy regularization in early stages is the single fastest way to train a policy that just stands still and collects the alive bonus.
 
@@ -124,6 +188,7 @@ The repo is a full IsaacLab fork, so most of the tree is upstream code. The file
 ```
 convergence_monitor.py                          # auto-stop training at checkpoint boundary
 patch_noise_std.py                              # reset noise_std for stage transitions
+PROJECT_PLAN.md                                 # original 13-stage plan (historical)
 source/isaaclab_tasks/isaaclab_tasks/manager_based/classic/humanoid/
 ├── __init__.py                                 # gym environment registrations
 ├── custom_mdp.py                               # all custom MDP functions (~1400 lines)
