@@ -35,7 +35,8 @@ https://github.com/user-attachments/assets/265bd73a-4868-4174-8a72-e026c32ca28a
 The fix was a stack of conditional rewards and penalties: an upright-posture bonus, a feet-contact-count reward, an airborne penalty for lifting more than two feet at once, a roll penalty for tilting sideways, and a vertical-velocity penalty to kill jumping. Together they make four-legged grounded walking the only profitable strategy. The single most important rule from this stage, and one I keep coming back to: standing must never be more profitable than walking. The alive + upright + contact bonuses combined have to stay under 0.3, or the ant just stands there collecting income.
 
 <!-- VIDEO 2: Stage 0 working — clean four-legged forward walk. -->
-<!-- PASTE_URL_VIDEO_2_STAGE0_WORKING -->
+
+https://github.com/user-attachments/assets/084666d6-bdde-4a0a-b396-0bcbb6e5f061
 
 ### Stages 2 and 3: hitting walls before learning to dodge
 
