@@ -29,8 +29,8 @@ I started with a fairly detailed 13-stage plan: an L-shaped maze with two chican
 
 The very first version of Stage 0 had a single reward: velocity in the +x direction. The ant figured out that the cheapest way to maximize +x velocity was to tilt sideways and shuffle on three legs, which is technically forward motion but is also extremely funny to watch and absolutely useless for everything that comes after.
 
-<!-- VIDEO 1: Stage 0 broken — three-legged tilted ant. -->
-<!-- PASTE_URL_VIDEO_1_STAGE0_BROKEN -->
+[<!-- VIDEO 1: Stage 0 broken — three-legged tilted ant. -->
+<!-- PASTE_URL_VIDEO_1_STAGE0_BROKEN -->](https://github.com/user-attachments/assets/265bd73a-4868-4174-8a72-e026c32ca28a)
 
 The fix was a stack of conditional rewards and penalties: an upright-posture bonus, a feet-contact-count reward, an airborne penalty for lifting more than two feet at once, a roll penalty for tilting sideways, and a vertical-velocity penalty to kill jumping. Together they make four-legged grounded walking the only profitable strategy. The single most important rule from this stage, and one I keep coming back to: standing must never be more profitable than walking. The alive + upright + contact bonuses combined have to stay under 0.3, or the ant just stands there collecting income.
 
